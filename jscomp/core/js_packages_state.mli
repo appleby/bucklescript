@@ -24,7 +24,7 @@
 
 
 val get_package_name : 
-  unit -> string option
+  unit -> string
 
 val set_package_name : string -> unit 
 

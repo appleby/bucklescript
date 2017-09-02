@@ -182,10 +182,9 @@ let pp_deps_program
         | Goog  -> 
           let goog_package = 
             let v = Js_config.get_module_name () in
-            match Js_packages_state.get_package_name () with 
-            | None 
-              -> v 
-            | Some x -> x ^ "." ^ v 
+            let x = 
+              Js_packages_state.get_package_name ()  in
+            x ^ "." ^ v 
           in 
           goog_program ~output_prefix f goog_package  program
       ) ;

@@ -38,9 +38,10 @@ type package_name  = string
 
 
 type t =
-  | Empty 
   | NonBrowser of package_name * package_info  list
 
+val empty : t 
+val is_empty : t -> bool 
 val dump_packages_info : 
   Format.formatter -> t -> unit
 

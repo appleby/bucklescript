@@ -387,9 +387,8 @@ let lambda_as_module
          (* filename *) (* see #757  *)
       ) in
     (* Not re-entrant *)
-    match Js_packages_state.get_packages_info () with 
-    | Empty 
-    | NonBrowser (_, []) -> 
+    let package_info = (Js_packages_state.get_packages_info ()) in 
+    if Js_packages_info.is_empty package_info  then 
       (* script mode *)
       let output_chan chan =         
         Js_dump_program.dump_deps_program ~output_prefix NodeJS lambda_output chan in
@@ -405,6 +404,7 @@ let lambda_as_module
              only generate little-case js file
           *)
           ) output_chan
+    else match package_info with       
     | NonBrowser (_package_name, module_systems) ->
       module_systems |> List.iter begin fun (module_system, _path) -> 
         let output_chan chan  = 

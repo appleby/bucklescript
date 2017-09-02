@@ -375,8 +375,9 @@ let lambda_as_module
     (lam : Lambda.lambda) = 
   begin 
     Js_config.set_current_file filename ;  
+
 #if BS_DEBUG then    
-    Js_config.set_debug_file "gpr_1891_test.ml";
+    Js_config.set_debug_file "demo.ml";
 #end    
     let lambda_output = compile ~filename output_prefix env sigs lam in
     let (//) = Filename.concat in 
@@ -389,6 +390,10 @@ let lambda_as_module
     (* Not re-entrant *)
     let package_info = (Js_packages_state.get_packages_info ()) in 
     if Js_packages_info.is_empty package_info  then 
+    begin 
+#if BS_DEBUG then 
+      Ext_log.dwarn __LOC__ "@[script mode@]@.";
+#end
       (* script mode *)
       let output_chan chan =         
         Js_dump_program.dump_deps_program ~output_prefix NodeJS lambda_output chan in
@@ -404,9 +409,16 @@ let lambda_as_module
              only generate little-case js file
           *)
           ) output_chan
-    else 
+    end
+    else  begin 
     match package_info with       
     {module_systems} ->
+#if BS_DEBUG then 
+      Ext_log.dwarn __LOC__ "@[module systems:%a@]@."
+        Ext_pervasives.pp_any module_systems
+      ;
+#end
+    
       module_systems |> List.iter begin fun (module_system, _path) -> 
         let output_chan chan  = 
           Js_dump_program.dump_deps_program ~output_prefix
@@ -424,6 +436,7 @@ let lambda_as_module
             ) output_chan
 
       end
+    end 
   end
 (* We can use {!Env.current_unit = "Pervasives"} to tell if it is some specific module, 
     We need handle some definitions in standard libraries in a special way, most are io specific, 

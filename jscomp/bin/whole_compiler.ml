@@ -63038,9 +63038,13 @@ type package_name  = string
 
 
 type t =
-  | NonBrowser of package_name * package_info  list
+  private {
+    name : package_name ;
+    module_systems :  package_info  list
+  }
 
 val empty : t 
+val from_name : string -> t 
 val is_empty : t -> bool 
 val dump_packages_info : 
   Format.formatter -> t -> unit
@@ -63053,11 +63057,11 @@ val add_npm_package_path :
 
 
 (**
-  generate the mdoule path so that it can be spliced here:
-  {[
-    var Xx = require("package/path/to/xx.js")
-  ]}
-  Note that it has to be consistent to how it is generated
+   generate the mdoule path so that it can be spliced here:
+   {[
+     var Xx = require("package/path/to/xx.js")
+   ]}
+   Note that it has to be consistent to how it is generated
 *)  
 val string_of_module_id :
   hint_output_dir:string ->
@@ -63123,15 +63127,29 @@ type package_info =
 
 type package_name  = string
 type t =
-  | NonBrowser of package_name * package_info  list
+  { 
+    name : package_name ;
+    module_systems: package_info  list
+  }
   (* we don't want force people to use package *) 
 
-(** TODO: not allowing user to provide such specific package name *)  
-let empty = NonBrowser("_", [])
+(** 
+  TODO: not allowing user to provide such specific package name 
+  For empty package, [-bs-package-output] does not make sense
+  it is only allowed to generate commonjs file in the same directory
+*)  
+let empty = 
+  { name = "_";
+    module_systems =  []
+  }
+let from_name name = {
+  name ;
+  module_systems = [] 
+}
 let is_empty  (x : t) =
   match x with 
-  | NonBrowser("_", _) -> true 
-  | NonBrowser _  -> false 
+  | { name = "_" } -> true 
+  | _ -> false 
 
 let string_of_module_system (ms : module_system) = 
     match ms with 
@@ -63166,10 +63184,7 @@ let dump_package_info
 
 let dump_packages_info 
     (fmt : Format.formatter) 
-    (p : t) = 
-  match p with 
-  (* | Empty -> Format.pp_print_string fmt  "<Empty>" *)
-  | NonBrowser (name, ls) ->
+    ({name ; module_systems = ls } : t) = 
     Format.fprintf fmt "@[%s;@ @[%a@]@]"
       name
       (Format.pp_print_list
@@ -63178,7 +63193,6 @@ let dump_packages_info
       ) ls
 
 type info_query =
-  (* | Package_empty *)
   | Package_script of string
   | Package_found of package_name * string
   | Package_not_found 
@@ -63186,11 +63200,10 @@ type info_query =
 
 
 let query_package_infos 
-    (package_infos : t) module_system : info_query =
-  match package_infos with
-  (* | Empty -> Package_empty *)
-  | NonBrowser (name, []) -> Package_script name
-  | NonBrowser (name, paths) ->
+    ({name ; module_systems } : t) module_system : info_query =
+  match module_systems with
+  |[] -> Package_script name
+  | paths ->
     begin match List.find (fun (k, _) -> 
         compatible k  module_system) paths with
     | (_, x) -> Package_found (name, x)
@@ -63203,41 +63216,40 @@ let query_package_infos
 *)
 let get_output_dir ~pkg_dir module_system 
     ~hint_output_dir 
-    packages_info =
-  match packages_info with
-  (* | Empty  *)
-  | NonBrowser (_, [])->
+    ({module_systems } : t ) =
+  match module_systems with
+  | []->
     if Filename.is_relative hint_output_dir then
       Filename.concat (Lazy.force Ext_filename.cwd )
         hint_output_dir
     else
       hint_output_dir
-  | NonBrowser (_,  modules) ->
+  | _ ->
     begin match List.find (fun (k,_) -> 
-        compatible k  module_system) modules with
+        compatible k  module_system) module_systems with
     | (_, path) -> Filename.concat pkg_dir  path
     |  exception _ -> assert false
     end
 
 
 let add_npm_package_path s (packages_info : t)  : t =
-  match packages_info  with
-  (* | Empty ->
-    Ext_pervasives.bad_argf "please set package name first using -bs-package-name "; *)
-  | NonBrowser(name,  envs) ->
+    if is_empty packages_info then 
+      Ext_pervasives.bad_argf "please set package name first using -bs-package-name "
+    else   
     let env, path =
       match Ext_string.split ~keep_empty:false s ':' with
-      | [ package_name; path]  ->
-        (match module_system_of_string package_name with
+      | [ module_system; path]  ->
+        (match module_system_of_string module_system with
          | Some x -> x
          | None ->
-           Ext_pervasives.bad_argf "invalid module system %s" package_name), path
+           Ext_pervasives.bad_argf "invalid module system %s" module_system), path
       | [path] ->
         NodeJS, path
       | _ ->
         Ext_pervasives.bad_argf "invalid npm package path: %s" s
     in
-    NonBrowser (name,  ((env,path) :: envs))    
+    { packages_info with module_systems = (env,path)::packages_info.module_systems}
+    
 
 
 
@@ -63300,18 +63312,17 @@ let string_of_module_id
             Bs_exception.error (Missing_ml_dependency x.id.name)
           (*TODO: log which module info is not done
           *)
-          | Goog, (
-            (* Package_empty | *) Package_script _), _ 
+          | Goog, (Package_script _), _ 
             -> 
             Bs_exception.error (Dependency_script_module_dependent_not js_file)
           | (AmdJS | NodeJS | Es6 | Es6_global | AmdJS_global),
-            ( (* Package_empty | *) Package_script _) ,
+            Package_script _ ,
             Package_found _  -> 
             Bs_exception.error (Dependency_script_module_dependent_not js_file)
           | Goog , Package_found (package_name, x), _  -> 
             package_name  ^ "." ^  String.uncapitalize id.name
           | (AmdJS | NodeJS| Es6 | Es6_global|AmdJS_global),
-           ( (* Package_empty | *) Package_script _ | Package_found _ ), Package_not_found -> assert false
+           (Package_script _ | Package_found _ ), Package_not_found -> assert false
 
           | (AmdJS | NodeJS | Es6 | Es6_global|AmdJS_global), 
             Package_found(package_name, x),
@@ -63352,12 +63363,9 @@ let string_of_module_id
                   package_dir // x // js_file)) 
             else 
               package_name // x // js_file
-          (* | (AmdJS | NodeJS | Es6 | AmdJS_global | Es6_global), 
-            Package_found(package_name, x), Package_empty 
-            ->    package_name // x // js_file *)
           |  (AmdJS | NodeJS | Es6 | AmdJS_global | Es6_global), 
-             ( (* Package_empty | *) Package_script _) , 
-             ( (* Package_empty | *) Package_script _)
+            Package_script _ , 
+             Package_script _
             -> 
             begin match Config_util.find_opt js_file with 
               | Some file -> 
@@ -87989,11 +87997,11 @@ let packages_info  = ref Js_packages_info.empty
 
 let get_package_name () =
   match !packages_info with
-  | NonBrowser(n,_) ->  n
+  { name ; } ->  name
 
 let set_package_name name =
   if Js_packages_info.is_empty !packages_info then 
-      packages_info := NonBrowser(name,  [])
+      packages_info := Js_packages_info.from_name name
   else
     Ext_pervasives.bad_argf "duplicated flag for -bs-package-name"
 
@@ -102124,8 +102132,9 @@ let lambda_as_module
              only generate little-case js file
           *)
           ) output_chan
-    else match package_info with       
-    | NonBrowser (_package_name, module_systems) ->
+    else 
+    match package_info with       
+    {module_systems} ->
       module_systems |> List.iter begin fun (module_system, _path) -> 
         let output_chan chan  = 
           Js_dump_program.dump_deps_program ~output_prefix

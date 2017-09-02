@@ -404,8 +404,9 @@ let lambda_as_module
              only generate little-case js file
           *)
           ) output_chan
-    else match package_info with       
-    | NonBrowser (_package_name, module_systems) ->
+    else 
+    match package_info with       
+    {module_systems} ->
       module_systems |> List.iter begin fun (module_system, _path) -> 
         let output_chan chan  = 
           Js_dump_program.dump_deps_program ~output_prefix

@@ -38,9 +38,13 @@ type package_name  = string
 
 
 type t =
-  | NonBrowser of package_name * package_info  list
+  private {
+    name : package_name ;
+    module_systems :  package_info  list
+  }
 
 val empty : t 
+val from_name : string -> t 
 val is_empty : t -> bool 
 val dump_packages_info : 
   Format.formatter -> t -> unit
@@ -53,11 +57,11 @@ val add_npm_package_path :
 
 
 (**
-  generate the mdoule path so that it can be spliced here:
-  {[
-    var Xx = require("package/path/to/xx.js")
-  ]}
-  Note that it has to be consistent to how it is generated
+   generate the mdoule path so that it can be spliced here:
+   {[
+     var Xx = require("package/path/to/xx.js")
+   ]}
+   Note that it has to be consistent to how it is generated
 *)  
 val string_of_module_id :
   hint_output_dir:string ->

@@ -28,11 +28,11 @@ let packages_info  = ref Js_packages_info.empty
 
 let get_package_name () =
   match !packages_info with
-  | NonBrowser(n,_) ->  n
+  { name ; } ->  name
 
 let set_package_name name =
   if Js_packages_info.is_empty !packages_info then 
-      packages_info := NonBrowser(name,  [])
+      packages_info := Js_packages_info.from_name name
   else
     Ext_pervasives.bad_argf "duplicated flag for -bs-package-name"
 

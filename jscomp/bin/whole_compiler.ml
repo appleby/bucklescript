@@ -102105,6 +102105,7 @@ let lambda_as_module
     (lam : Lambda.lambda) = 
   begin 
     Js_config.set_current_file filename ;  
+
     
     let lambda_output = compile ~filename output_prefix env sigs lam in
     let (//) = Filename.concat in 
@@ -102135,7 +102136,7 @@ let lambda_as_module
           *)
           ) output_chan
     end
-    else 
+    else  begin 
     match package_info with       
     {module_systems} ->
 
@@ -102157,6 +102158,7 @@ let lambda_as_module
             ) output_chan
 
       end
+    end 
   end
 (* We can use {!Env.current_unit = "Pervasives"} to tell if it is some specific module, 
     We need handle some definitions in standard libraries in a special way, most are io specific, 

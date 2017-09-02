@@ -411,15 +411,14 @@ let lambda_as_module
           ) output_chan
     end
     else  begin 
-    match package_info with       
-    {module_systems} ->
+
 #if BS_DEBUG then 
       Ext_log.dwarn __LOC__ "@[module systems:%a@]@."
         Ext_pervasives.pp_any module_systems
       ;
-#end
-    
-      module_systems |> List.iter begin fun (module_system, _path) -> 
+#end    
+      package_infos.module_systems 
+      |> List.iter begin fun (module_system, _path) -> 
         let output_chan chan  = 
           Js_dump_program.dump_deps_program ~output_prefix
             module_system 
